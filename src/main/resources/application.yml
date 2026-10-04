@@ -14,6 +14,11 @@ spring:
     virtual:
       enabled: true
 
+  # Enables RFC 9457 for Spring MVC built-in exceptions
+  mvc:
+    problemdetails:
+      enabled: true
+
   # Relational Store: PostgreSQL
   datasource:
     url: ${CHAINSLEUTH_POSTGRES_URL:jdbc:postgresql://localhost:5432/chainsleuth}

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+  <!--
+    ============================================================================
+    ChainSleuth Enterprise Logging Architecture — Logback Configuration
+    ============================================================================
+    Provides split profiles:
+    1. Development (!prod): High-visibility colored console output with trace and request identifiers.
+    2. Production (prod): High-throughput structured JSON logs optimized for ELK Stack, Splunk,
+       and Google Cloud Logging pipelines.
+
+    MDC Field Propagation:
+    - traceId: Populated automatically by Micrometer Tracing.
+    - requestId: Generated per-request UUID injected by RequestLoggingFilter.
+    - uri & httpMethod: Request routing metadata set in RequestLoggingFilter.
+    All MDC context entries appear as indexed, searchable top-level fields in production JSON.
+    ============================================================================
+  -->
+
+  <!-- Import Spring Boot's foundational defaults -->
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+  <!-- =============================================================
+       DEVELOPMENT PROFILE: Human-readable colored console output
+  ============================================================== -->
+  <springProfile name="!prod">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <pattern>
+          %d{HH:mm:ss.SSS} %highlight(%-5level) [%blue(%thread)] [%cyan(traceId=%X{traceId})] [%yellow(req=%X{requestId})] %logger{36} - %msg%n
+        </pattern>
+        <charset>UTF-8</charset>
+      </encoder>
+    </appender>
+
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <logger name="com.chainsleuth" level="DEBUG" additivity="false">
+      <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <logger name="org.springframework.security" level="INFO" additivity="false">
+      <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <logger name="org.springframework.ai" level="DEBUG" additivity="false">
+      <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <logger name="org.neo4j.driver" level="WARN" additivity="false">
+      <appender-ref ref="CONSOLE"/>
+    </logger>
+  </springProfile>
+
+  <!-- =============================================================
+       PRODUCTION PROFILE: Structured JSON for ELK / Splunk / GCP
+       Uses Logback's built-in JsonEncoder (Logback 1.4.14+)
+  ============================================================== -->
+  <springProfile name="prod">
+    <!--
+      Why JSON logging in production:
+      Eliminates costly log parsing Regex overhead in Logstash and Fluentd. Every log
+      record is natively emitted as machine-parseable JSON.
+
+      Automatic MDC Field Ingestion:
+      Logback's JsonEncoder automatically serializes all MDC keys (traceId, requestId,
+      httpMethod, uri) as first-class JSON keys. Every production incident log is directly
+      searchable by traceId across distributed traces in Kibana.
+    -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder class="ch.qos.logback.classic.encoder.JsonEncoder"/>
+    </appender>
+
+    <root level="WARN">
+      <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+
+    <logger name="com.chainsleuth" level="INFO" additivity="false">
+      <appender-ref ref="JSON_CONSOLE"/>
+    </logger>
+
+    <!-- Suppress noisy framework loggers in production -->
+    <logger name="org.springframework"    level="WARN"/>
+    <logger name="org.neo4j.driver"       level="WARN"/>
+    <logger name="io.grpc"                level="WARN"/>
+    <logger name="org.springframework.ai" level="INFO"/>
+  </springProfile>
+
+</configuration>
