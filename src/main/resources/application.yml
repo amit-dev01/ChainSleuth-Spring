@@ -1,0 +1,213 @@
+# ==============================================================================
+# ChainSleuth Core — Enterprise Blockchain Forensics & Intelligence Platform
+# Master Multi-Profile Application Configuration
+# ==============================================================================
+
+spring:
+  application:
+    name: chainsleuth-core
+
+  # Global Java 21+ / 25 Virtual Threads enablement.
+  # Automatically converts Tomcat incoming request processing threads and
+  # @Async task executors to Project Loom virtual threads.
+  threads:
+    virtual:
+      enabled: true
+
+  # Relational Store: PostgreSQL
+  datasource:
+    url: ${CHAINSLEUTH_POSTGRES_URL:jdbc:postgresql://localhost:5432/chainsleuth}
+    username: ${CHAINSLEUTH_POSTGRES_USER:chainsleuth}
+    password: ${CHAINSLEUTH_POSTGRES_PASSWORD:dev-password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 40
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: ChainSleuthHikariPool
+      # NOTE: With virtual threads, HikariCP pool size IS the real concurrency 
+      # ceiling for DB operations. Size it to match expected concurrent DB query 
+      # load — NOT the number of Tomcat threads (which is now unlimited via VT).
+
+  # JPA & Hibernate Configuration
+  jpa:
+    hibernate:
+      # Schema is strictly owned, versioned, and applied by Flyway migrations.
+      # Hibernate is constrained to validation mode to catch mapping drift at startup.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          batch_size: 50
+          order_inserts: true
+          order_updates: true
+    # Open-Session-In-View (OSIV) disabled to prevent N+1 queries during REST serialization
+    # and avoid holding expensive database connections during long network I/O cycles.
+    open-in-view: false
+
+  # Graph Store: Neo4j (Entity Clustering & Hop Graph Traversal)
+  neo4j:
+    uri: ${CHAINSLEUTH_NEO4J_URI:bolt://localhost:7687}
+    authentication:
+      username: ${CHAINSLEUTH_NEO4J_USER:neo4j}
+      password: ${CHAINSLEUTH_NEO4J_PASSWORD:chainsleuth-dev}
+
+  # Caching & Distributed Lock Store: Redis
+  data:
+    redis:
+      url: ${CHAINSLEUTH_REDIS_URL:redis://localhost:6379}
+      ssl:
+        enabled: false             # Set true in prod (Upstash TLS)
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+
+  # Flyway Database Migration Engine
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+
+  # Spring AI — Gemini 2.5 LLM Integration for SAR & Intelligence Generation
+  ai:
+    google:
+      genai:
+        api-key: ${CHAINSLEUTH_GEMINI_API_KEY:REPLACE_ME}
+        chat:
+          options:
+            model: gemini-2.5-flash
+            temperature: 0.1
+            max-output-tokens: 8192
+
+  # Security — Supabase OIDC / JWT Resource Server
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${CHAINSLEUTH_SUPABASE_JWKS_URL:https://your-project-ref.supabase.co/auth/v1/.well-known/jwks.json}
+
+# Actuator & Observability Metrics
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,loggers
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0            # 100% in dev — reduce to 0.1 in prod
+
+# Web Server & Transport Layer
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/javascript,text/css
+  http2:
+    enabled: true                 # HTTP/2 multiplexing for frontend communications
+  error:
+    include-message: never        # Never expose raw internal messages (RFC 7807 handles this)
+    include-stacktrace: never
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.chainsleuth: DEBUG
+    org.springframework.security: INFO
+    org.springframework.ai: DEBUG
+    org.neo4j: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
+
+# ==============================================================================
+# ChainSleuth Custom Domain Configuration
+# Multi-chain RPCs, Sidecar Connectivity, Evidence Cryptography
+# Injected via strongly-typed @ConfigurationProperties records
+# ==============================================================================
+chainsleuth:
+  security:
+    cors:
+      allowed-origins:
+        - ${CHAINSLEUTH_FRONTEND_URL:http://localhost:3000}
+    jwt:
+      audience: authenticated       # Supabase JWT audience claim
+
+  chains:
+    base:
+      rpc-url: ${CHAINSLEUTH_BASE_RPC_URL:https://mainnet.base.org}
+      explorer-api-url: ${CHAINSLEUTH_BASESCAN_API_URL:https://api.basescan.org/api}
+      api-key: ${CHAINSLEUTH_BASESCAN_API_KEY:REPLACE_ME}
+      chain-id: 8453
+
+    ethereum:
+      rpc-url: ${CHAINSLEUTH_ETH_RPC_URL:https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY}
+      explorer-api-url: ${CHAINSLEUTH_ETHERSCAN_API_URL:https://api.etherscan.io/api}
+      api-key: ${CHAINSLEUTH_ETHERSCAN_API_KEY:REPLACE_ME}
+      chain-id: 1
+
+    tron:
+      tron-grid-url: ${CHAINSLEUTH_TRONGRID_URL:https://api.trongrid.io}
+      api-key: ${CHAINSLEUTH_TRONGRID_API_KEY:REPLACE_ME}
+
+    solana:
+      rpc-url: ${CHAINSLEUTH_SOLANA_RPC_URL:https://api.mainnet-beta.solana.com}
+
+    bitcoin:
+      mempool-api-url: ${CHAINSLEUTH_MEMPOOL_URL:https://mempool.space/api}
+
+  ml-sidecar:
+    grpc-host: ${CHAINSLEUTH_ML_SIDECAR_HOST:localhost}
+    grpc-port: ${CHAINSLEUTH_ML_SIDECAR_PORT:50051}
+    http-url: ${CHAINSLEUTH_ML_SIDECAR_HTTP_URL:http://localhost:8001}
+    connect-timeout-seconds: 5
+    request-timeout-seconds: 10
+    circuit-breaker:
+      failure-threshold: 5
+      recovery-timeout-seconds: 30
+
+  evidence:
+    hmac-secret-key: ${CHAINSLEUTH_HMAC_SECRET:REPLACE_WITH_SECURE_256BIT_HEX_KEY}
+    verification-base-url: ${CHAINSLEUTH_APP_URL:https://chainsleuth.app}
+
+---
+# ==============================================================================
+# Production Profile Overrides (spring.profiles: prod)
+# ==============================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+  data:
+    redis:
+      ssl:
+        enabled: true              # Upstash requires TLS in production
+  jpa:
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    root: WARN
+    com.chainsleuth: INFO
+
+management:
+  tracing:
+    sampling:
+      probability: 0.05           # 5% sampling in production
