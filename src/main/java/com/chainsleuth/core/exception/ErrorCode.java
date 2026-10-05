@@ -39,9 +39,10 @@ public enum ErrorCode {
     MISSING_FIELD("validation:missing-field", HttpStatus.BAD_REQUEST, "Required Field Missing"),
 
     // =========================================================================
-    // DOMAIN CATEGORY (404 Not Found & 403 Forbidden)
+    // DOMAIN CATEGORY (404 Not Found, 403 Forbidden & 409 Conflict)
     // =========================================================================
     CASE_NOT_FOUND("domain:case-not-found", HttpStatus.NOT_FOUND, "Case Not Found"),
+    CASE_NOT_EDITABLE("domain:case-not-editable", HttpStatus.CONFLICT, "Case Cannot Be Edited"),
     EVIDENCE_NOT_FOUND("domain:evidence-not-found", HttpStatus.NOT_FOUND, "Evidence Not Found"),
     DOCUMENT_NOT_FOUND("domain:document-not-found", HttpStatus.NOT_FOUND, "Legal Document Not Found"),
     WALLET_NOT_FOUND("domain:wallet-not-found", HttpStatus.NOT_FOUND, "Wallet Not Found"),

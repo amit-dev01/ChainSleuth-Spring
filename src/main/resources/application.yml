@@ -44,6 +44,7 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
+        default_schema: public
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
         jdbc:
@@ -63,6 +64,9 @@ spring:
 
   # Caching & Distributed Lock Store: Redis
   data:
+    jpa:
+      repositories:
+        bootstrap-mode: deferred
     redis:
       url: ${CHAINSLEUTH_REDIS_URL:redis://localhost:6379}
       ssl:
